@@ -2,12 +2,12 @@ import streamlit as st
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS  # ✅ Corrigido aqui
+from langchain.chains.question_answering import load_qa_chain
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 import os
 
 load_dotenv()
-
 
 def main():
     st.set_page_config(page_title="📊 Pergunte ao seu PDF")
@@ -20,14 +20,14 @@ def main():
         text = ""
 
         for page in pdf_reader.pages:
-            extracted_text = page.extract_text() or ""  
+            extracted_text = page.extract_text() or ""
             text += extracted_text + "\n"
 
         text_splitter = CharacterTextSplitter(
             separator="\n",
             chunk_size=1000,
             chunk_overlap=200,
-            length_function=len  
+            length_function=len
         )
 
         chunks = text_splitter.split_text(text)
@@ -40,15 +40,14 @@ def main():
             docs = knowledge_base.similarity_search(user_question)
 
             if docs:
-                relevant_text = docs[0].page_content if hasattr(docs[0], "page_content") else "Nenhum texto relevante encontrado."
-
                 llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro-latest")
-                response = llm.invoke(f"Aqui está um trecho do PDF relevante: {relevant_text}. Responda à pergunta: {user_question}")
+                chain = load_qa_chain(llm, chain_type="stuff")
+
+                response = chain.run(input_documents=docs, question=user_question)
 
                 st.write(response)
             else:
                 st.warning("Nenhuma informação relevante encontrada no PDF.")
-
 
 if __name__ == '__main__':
     main()
